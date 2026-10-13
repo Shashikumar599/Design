@@ -1,0 +1,20 @@
+# IntelliJ
+.idea/
+*.iml
+
+# Build output
+out/
+*.class
+
+# Claude Code local config
+.claude/
+
+# Tutor feedback files
+FEEDBACK.md
+
+# macOS
+.DS_Store
+
+CLAUDE.md
+PLAN.md
+DESIGN.md
