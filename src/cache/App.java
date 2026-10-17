@@ -45,4 +45,8 @@ public class App<K,V> {
     public void storeToDB(K key, V value){
         database.put(key, value);
     }
+
+    public void shutdown() throws InterruptedException {
+        writePolicy.shutdown();
+    }
 }

@@ -11,11 +11,15 @@ import java.util.concurrent.TimeUnit;
 
 public class WriteBehind<K,V> extends WritePolicyBase<K,V> implements WritePolicy<K,V>{
     private final Map<K,V> map;
+    private final ScheduledExecutorService executorService;
+
+    private boolean shutdown;
 
     public WriteBehind(Cache<K,V> cache, Database<K,V> database){
         super(cache,database);
+        shutdown = false;
         map = new ConcurrentHashMap<>();
-        ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+        executorService = Executors.newSingleThreadScheduledExecutor();
         executorService.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
@@ -26,6 +30,9 @@ public class WriteBehind<K,V> extends WritePolicyBase<K,V> implements WritePolic
 
     @Override
     public void write(K key, V value) {
+        if(shutdown){
+            throw new RuntimeException("App is shutting down, Writes are blocked");
+        }
         writeToCache(key, value);
         map.put(key,value);
         //bg handler flushing to db , we can create an executor and have intialize it in init method ,
@@ -68,5 +75,16 @@ public class WriteBehind<K,V> extends WritePolicyBase<K,V> implements WritePolic
     @Override
     public void invalidateCache(K key) {
 
+    }
+
+    @Override
+    public void shutdown() throws InterruptedException {
+        shutdown = true;
+        executorService.shutdown();
+        executorService.awaitTermination(5,TimeUnit.SECONDS);
+
+        System.out.println("Calling Flush to DB");
+        flush();
+        System.out.println("Cache , DB system shutdown completed");
     }
 }

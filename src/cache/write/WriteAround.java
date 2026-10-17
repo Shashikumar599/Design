@@ -29,4 +29,9 @@ public class WriteAround<K,V> extends WritePolicyBase<K,V> implements WritePolic
     public void invalidateCache(K key) {
         cache.invalidateKey(key);
     }
+
+    @Override
+    public void shutdown() {
+        System.out.println("Cache , DB system shutdown");
+    }
 }

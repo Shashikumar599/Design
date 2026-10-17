@@ -39,4 +39,9 @@ public class WriteThrough<K,V> extends WritePolicyBase<K,V> implements WritePoli
         cache.invalidateKey(key);
 
     }
+
+    @Override
+    public void shutdown() {
+        System.out.println("Cache , DB system shutdown");
+    }
 }
