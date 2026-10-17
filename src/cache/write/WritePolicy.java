@@ -5,5 +5,6 @@ public interface WritePolicy<K,V> {
     public  void writeToDB(K key, V value);
     public  void writeToCache(K key, V value);
     public  void invalidateCache(K key);
+    public void shutdown() throws InterruptedException;
 
 }

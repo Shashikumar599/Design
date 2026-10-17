@@ -41,5 +41,12 @@ public class Main {
         System.out.println("Value of 4 "+ app.get(4));
         System.out.println("Value of 5 "+ app.get(5));
         System.out.println("Value of 6 "+ app.get(6));
+
+        try{
+            app.shutdown();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
     }
 }
