@@ -44,8 +44,8 @@ public class Main {
 
         try{
             app.shutdown();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            System.out.println("Exception occurred while shutting down " + e.getMessage());
         }
 
     }
