@@ -30,8 +30,20 @@ public class App<K,V> {
     public V get(K key){
         V value = cache.get(key);
         if(value == null){
-            value = database.get(key);
-            System.out.println("Answered from db");
+            System.out.println("key not present in cache");
+            System.out.println("check write buffer");
+            value = writePolicy.bufferRead(key);
+            if(value == null){
+                System.out.println("Key not present in Cache and buffer");
+                System.out.println("Checking db");
+                value = database.get(key);
+                if(value == null){
+                    System.out.println("Key not found");
+                    return value;
+                }
+                //Write key to cache;
+                writePolicy.fillCache(key, value);
+            }
         }
         return value;
     }

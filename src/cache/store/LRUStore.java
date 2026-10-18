@@ -1,13 +1,9 @@
 package cache.store;
 
-import cache.DB.DB;
-
 import java.util.HashMap;
 import java.util.Map;
 
 public class LRUStore<K, V> implements Store<K, V>{
-    DB<K,V> cacheDb;
-
 
     class Node{
         K key;
@@ -20,13 +16,23 @@ public class LRUStore<K, V> implements Store<K, V>{
             this.value = value;
         }
     }
-    private int capacity;
-    private Map<K, Node> map;
-    private Node head,tail;
+    private final int capacity;
+    private final Map<K, Node> map;
+    private final Node head;
+    private final Node tail;
+    // Guards map and the linked list (head..tail). Every public method holds it for its WHOLE body, because get() also
+    // moves a node and put() does check-then-act (size<capacity, then evict + insert).
+    // A private lock object (not `synchronized` methods on `this`) so no outside code can take the same lock.
+    // `this` would also be acceptable while only Cache holds the store; switch to / keep this if the store gets exposed.
+    private final Object lock;
 
     public LRUStore(int capacity){
         //input validation
+        if(capacity<=0){
+            throw new IllegalArgumentException("Capacity should be positive");
+        }
         this.capacity = capacity;
+        lock = new Object();
         map = new HashMap<>();
         head = new Node(null,null);
         tail = new Node(null,null);
@@ -34,12 +40,11 @@ public class LRUStore<K, V> implements Store<K, V>{
         head.next=tail;
         tail.prev=head;
 
-//        cacheDb = new CacheDB<>();
-
     }
 
     @Override
     public V get(K key) {
+        synchronized (lock){
         Node node = map.get(key);
         if(node!=null){
             moveHead(node);
@@ -47,26 +52,27 @@ public class LRUStore<K, V> implements Store<K, V>{
         }
         //To be better handled
         return null;
+        }
     }
 
     @Override
     public void put(K key, V value) {
-        Node node = map.get(key);
-        if(node!=null){
-            node.value = value;
-            moveHead(node);
-        }
-        else{
-            node = new Node(key, value);
-            int size = map.size();
-            if(size<capacity){
-                addtoHead(node);
-                map.put(key,node);
-            }
-            else{
-                removeTail();
-                addtoHead(node);
-                map.put(key,node);
+        synchronized (lock) {
+            Node node = map.get(key);
+            if (node != null) {
+                node.value = value;
+                moveHead(node);
+            } else {
+                node = new Node(key, value);
+                int size = map.size();
+                if (size < capacity) {
+                    addtoHead(node);
+                    map.put(key, node);
+                } else {
+                    removeTail();
+                    addtoHead(node);
+                    map.put(key, node);
+                }
             }
         }
 
@@ -74,12 +80,15 @@ public class LRUStore<K, V> implements Store<K, V>{
 
     @Override
     public void invalidateKey(K key) {
-        if(map.containsKey(key)){
-            removeNode(map.get(key));
-            map.remove(key);
+        synchronized (lock) {
+            if (map.containsKey(key)) {
+                removeNode(map.get(key));
+                map.remove(key);
+            }
         }
     }
 
+    // Helpers below do NOT lock: callers must already hold `lock`.
     private void removeTail(){
         Node prev = tail.prev.prev;
 
