@@ -29,5 +29,8 @@ public class Cache<K,V> {
         System.out.println("Invalidating key "+ key);
         cacheStore.invalidateKey(key);
     }
+    public void fillCache(K key, V value){
+        cacheStore.fillCache(key,value);
+    }
 
 }

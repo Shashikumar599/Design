@@ -4,5 +4,6 @@ public interface Store<K,V>{
     public V get(K key);
     public void put(K key, V value);
     public void invalidateKey(K key);
+    public void fillCache(K key, V value);
 
 }

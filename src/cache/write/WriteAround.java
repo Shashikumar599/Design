@@ -34,4 +34,14 @@ public class WriteAround<K,V> extends WritePolicyBase<K,V> implements WritePolic
     public void shutdown() {
         System.out.println("Cache , DB system shutdown");
     }
+
+    @Override
+    public V bufferRead(K key) {
+        return null;
+    }
+
+    @Override
+    public void fillCache(K key, V value) {
+
+    }
 }

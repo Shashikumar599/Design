@@ -128,9 +128,9 @@ public class WriteBehind<K,V> extends WritePolicyBase<K,V> implements WritePolic
 
     @Override
     public void fillCache(K key, V value) {
-        if(!map.containsKey(key) && cache.get(key) == null){
+        if(!map.containsKey(key)){
             // this is where race can occur , after first check other thread can put key , value in map
-            writeToCache(key, value);
+            cache.fillCache(key, value);
         }
     }
 }

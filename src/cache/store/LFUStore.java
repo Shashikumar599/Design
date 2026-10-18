@@ -27,4 +27,9 @@ public class LFUStore<K, V> implements Store<K, V>{
     public void invalidateKey(K key) {
 
     }
+
+    @Override
+    public void fillCache(K key, V value) {
+
+    }
 }

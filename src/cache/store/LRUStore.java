@@ -88,6 +88,15 @@ public class LRUStore<K, V> implements Store<K, V>{
         }
     }
 
+    @Override
+    public void fillCache(K key, V value) {
+            synchronized (lock){
+                if(!map.containsKey(key)){
+                    put(key, value);
+                }
+            }
+    }
+
     // Helpers below do NOT lock: callers must already hold `lock`.
     private void removeTail(){
         Node prev = tail.prev.prev;
