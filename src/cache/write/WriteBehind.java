@@ -45,15 +45,9 @@ public class WriteBehind<K,V> extends WritePolicyBase<K,V> implements WritePolic
                 throw new IllegalStateException("App is shutting down, Writes are blocked");
             }
 
-            // below compute method rely on value returned from lambda function , it is atomic wrt to writing to cache
-            // by compute on key we have a lock
-            // k1 = key , old is current value in map ,
-            // 1 map.put(key,value) 2 writeToCache(key,value)
-            // thread a go to sleep after 1 , thread2 do 1,2 , now thread 1 write to cache but value in map is different
-            // these two steps needs to be atomic
-            // this is so map and cache do not drift , if different thread update same key
-            // There is no case of deadlock as writeTocache do not request lock on same key
-            map.compute(key, (k1,old) -> {
+            // cache + buffer update as one atomic step per key, so concurrent writers cannot leave them different.
+            // Lock order is always buffer key lock -> LRUStore lock, never reversed, so no deadlock. See DECISIONS.md D4.
+            map.compute(key, (k, old) -> {
                 writeToCache(key,value);
                 return value;});
         }
@@ -62,9 +56,7 @@ public class WriteBehind<K,V> extends WritePolicyBase<K,V> implements WritePolic
         }
     }
     private void flush(){
-        System.out.println("Flushing to db");
         if(map.isEmpty()){
-            System.out.println("Map is empty");
             return;
         }
         for(K key : map.keySet()){
@@ -133,10 +125,6 @@ public class WriteBehind<K,V> extends WritePolicyBase<K,V> implements WritePolic
 
     @Override
     public void fillCache(K key, V value) {
-//        if(!map.containsKey(key)){
-//            // this is where race can occur , after first check other thread can put key , value in map
-//            cache.fillCache(key, value);
-//        }
         map.computeIfAbsent(key ,(K  k) -> {
             cache.fillCache(key,value);
             return null;

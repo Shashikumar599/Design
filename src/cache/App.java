@@ -29,19 +29,15 @@ public class App<K,V> {
     }
     public V get(K key){
         if(key== null){
-            throw new IllegalArgumentException("NULL key is not required");
+            throw new IllegalArgumentException("key must not be null");
         }
+        // Counters: hit = found in cache or write buffer, miss = loaded from DB, absent everywhere = not counted.
         V value = cache.get(key);
         if(value == null){
-            System.out.println("key not present in cache");
-            System.out.println("check write buffer");
             value = writePolicy.bufferRead(key);
             if(value == null){
-                System.out.println("Key not present in Cache and buffer");
-                System.out.println("Checking db");
                 value = database.get(key);
                 if(value == null){
-                    System.out.println("Key not found");
                     return value;
                 }
                 cacheMiss.incrementAndGet();
@@ -58,8 +54,11 @@ public class App<K,V> {
     }
 
     public void put(K key, V value){
-        if(key== null || value == null){
-            throw new IllegalArgumentException("NULL key is not required");
+        if(key== null){
+            throw new IllegalArgumentException("key must not be null");
+        }
+        if(value == null){
+            throw new IllegalArgumentException("value must not be null");
         }
         writePolicy.write(key,value);
     }
