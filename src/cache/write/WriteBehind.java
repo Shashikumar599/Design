@@ -55,6 +55,19 @@ public class WriteBehind<K,V> extends WritePolicyBase<K,V> implements WritePolic
             shutdownLock.readLock().unlock();
         }
     }
+
+    @Override
+    public V read(K key) {
+        V value = bufferRead(key);
+        if(value==null){
+            value = database.get(key);
+            if(value!=null){
+                fillCache(key,value);
+            }
+        }
+        return value;
+    }
+
     private void flush(){
         if(map.isEmpty()){
             return;
@@ -73,18 +86,18 @@ public class WriteBehind<K,V> extends WritePolicyBase<K,V> implements WritePolic
     }
 
     @Override
-    public void writeToDB(K key, V value) {
+    protected void writeToDB(K key, V value) {
 
     }
 
     @Override
-    public void writeToCache(K key, V value) {
+    protected void writeToCache(K key, V value) {
         cache.put(key,value);
 
     }
 
     @Override
-    public void invalidateCache(K key) {
+    protected void invalidateCache(K key) {
 
     }
 
@@ -118,13 +131,13 @@ public class WriteBehind<K,V> extends WritePolicyBase<K,V> implements WritePolic
 
     }
 
-    @Override
-    public V bufferRead(K key) {
+
+    private V bufferRead(K key) {
         return map.get(key);
     }
 
     @Override
-    public void fillCache(K key, V value) {
+    protected void fillCache(K key, V value) {
         map.computeIfAbsent(key ,(K  k) -> {
             cache.fillCache(key,value);
             return null;

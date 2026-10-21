@@ -23,19 +23,24 @@ public class WriteThrough<K,V> extends WritePolicyBase<K,V> implements WritePoli
     }
 
     @Override
-    public void writeToDB(K key, V value) {
+    public V read(K key) {
+        return null;
+    }
+
+    @Override
+    protected void writeToDB(K key, V value) {
         database.put(key,value);
 
     }
 
     @Override
-    public void writeToCache(K key, V value) {
+    protected void writeToCache(K key, V value) {
         cache.put(key, value);
 
     }
 
     @Override
-    public void invalidateCache(K key) {
+    protected void invalidateCache(K key) {
         cache.invalidateKey(key);
 
     }
@@ -46,12 +51,7 @@ public class WriteThrough<K,V> extends WritePolicyBase<K,V> implements WritePoli
     }
 
     @Override
-    public V bufferRead(K key) {
-        return null;
-    }
-
-    @Override
-    public void fillCache(K key, V value) {
+    protected void fillCache(K key, V value) {
 
     }
 }
