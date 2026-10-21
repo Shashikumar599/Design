@@ -10,21 +10,25 @@ public class WriteThrough<K,V> extends WritePolicyBase<K,V> implements WritePoli
     }
 
     @Override
-    public void write(K key, V value) {
+    public synchronized void  write(K key, V value) {
         writeToCache(key, value);
         try{
             writeToDB(key, value);
         }
         catch (Exception e){
             invalidateCache(key);
-            throw new RuntimeException("Database Write Failed");
+            throw new RuntimeException("Database Write Failed " + e.getMessage());
         }
 
     }
 
     @Override
     public V read(K key) {
-        return null;
+        V value = database.get(key);
+        if(value!=null){
+            fillCache(key,value);
+        }
+        return value;
     }
 
     @Override
@@ -52,6 +56,6 @@ public class WriteThrough<K,V> extends WritePolicyBase<K,V> implements WritePoli
 
     @Override
     protected void fillCache(K key, V value) {
-
+        cache.fillCache(key,value);
     }
 }
