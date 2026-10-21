@@ -27,7 +27,7 @@ the value. DB-first can miss both. The buffer is also newer than the DB, so it m
 behaviour during a DB outage.
 
 ## D2. Read-fill race (stale DB value put into the cache after a newer write)
-**Status:** decided (phase 1: LRU + WriteBehind). Common race closed by an atomic put-if-absent on the store (one lock, check inside the lock) plus the pending-buffer check in `WriteBehind.fillCache`. The rare case (key evicted and flushed inside one reader's gap) is accepted as a known limitation; a TTL is the safety net if added later.
+**Status:** decided (phase 1: LRU + WriteBehind). Common race closed by an atomic put-if-absent on the store (one lock, check inside the lock) plus the pending-buffer check in `WriteBehind.fillCache`, which since D4 runs inside `map.computeIfAbsent` (buffer check and cache fill are one atomic step per key; a concurrent `write` waits). That closes the "write finished, then evicted, before the fill" gap. The remaining rare case (write **and flush** both finish inside one reader's gap, so buffer and cache both look empty) is accepted as a known limitation; a TTL is the safety net if added later.
 
 **Problem:** a reader misses cache and buffer, reads `(k, a)` from the DB, a newer `write(k, b)` happens (and may be evicted and
 flushed), then the reader puts `a` into the cache. The cache is now stale for that key, and nothing signals it. Separate from D1.
@@ -58,3 +58,27 @@ Phase 1 is LRU + WriteBehind. `LFUStore.fillCache` and read-through for `WriteTh
 state is touched (this was item X: `WriteBehind.write()` used to update the cache before `ConcurrentHashMap.put` threw on null).
 Consequence: `get` returning `null` always means "absent". Inner layers (`WritePolicy`, `Store`) trust `App`; they are public, so a
 direct caller could still bypass the check. Accepted for phase 1.
+
+## D4. Two concurrent writers to the same key: one atomic per-key step
+**Status:** decided and implemented (phase 1, `WriteBehind.write` with `compute`, `WriteBehind.fillCache` with `computeIfAbsent`). Not verified by a concurrency test (skipped by choice).
+
+**Problem:** `write` did `writeToCache(k, v)` then `map.put(k, v)`, each thread-safe alone. Two writers could interleave so the
+cache ends with one value and the buffer with the other; a reader then sees `v2`, and after an eviction `v1`, with no third write.
+
+**Decision:** both steps run inside `map.compute(key, ...)` (`ConcurrentHashMap` locks that key while the function runs). The
+function updates the cache and returns the new value, so the buffer and the cache always end with the same winner.
+Lock order: shutdown read-lock, then the map's per-key lock, then the `LRUStore` lock. `LRUStore` never calls back into the policy
+or the buffer, so there is no reverse order and no deadlock.
+
+**Rejected**
+- *`synchronized (key)`:* locks the key object, not its value; two equal keys that are different objects do not exclude each other.
+- *Compare-and-set (`get` then `replace(k, old, new)`) without a retry loop:* throws on the first write (`null`), silently loses a
+  write when the compare fails, and does not cover the cache update at all.
+- *Option 4, invalidate the cache on write:* changes the whole read/write flow and brings its own invalidate-vs-fill race.
+- *Option 5, cache takes whatever the buffer holds:* still two separate steps, so still racy.
+- *Striped locks / one global lock:* both correct; `compute` was chosen because it needs no extra lock objects and no identity rule.
+
+**Checked against the other paths**
+- *Flusher* (`get`, `database.put`, `remove(key, value)`): `remove` deletes only if the buffer still holds the flushed value, so a
+  newer different value stays for the next flush. If the newer write has the same value, removing it is harmless: the DB has it.
+- *Read-fill* (D2): `LRUStore.fillCache` re-checks presence under the store lock, so a write that completed in between wins.

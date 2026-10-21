@@ -44,17 +44,22 @@ public class WriteBehind<K,V> extends WritePolicyBase<K,V> implements WritePolic
             if(shutdown.get()){
                 throw new IllegalStateException("App is shutting down, Writes are blocked");
             }
-            writeToCache(key, value);
-            map.put(key,value);
+
+            // below compute method rely on value returned from lambda function , it is atomic wrt to writing to cache
+            // by compute on key we have a lock
+            // k1 = key , old is current value in map ,
+            // 1 map.put(key,value) 2 writeToCache(key,value)
+            // thread a go to sleep after 1 , thread2 do 1,2 , now thread 1 write to cache but value in map is different
+            // these two steps needs to be atomic
+            // this is so map and cache do not drift , if different thread update same key
+            // There is no case of deadlock as writeTocache do not request lock on same key
+            map.compute(key, (k1,old) -> {
+                writeToCache(key,value);
+                return value;});
         }
         finally {
             shutdownLock.readLock().unlock();
         }
-
-        //bg handler flushing to db , we can create an executor and have initialize it in init method ,
-        // that thread can continuously write to db , we can maintain a temp map and that map can be loaded to db
-
-
     }
     private void flush(){
         System.out.println("Flushing to db");
@@ -128,9 +133,14 @@ public class WriteBehind<K,V> extends WritePolicyBase<K,V> implements WritePolic
 
     @Override
     public void fillCache(K key, V value) {
-        if(!map.containsKey(key)){
-            // this is where race can occur , after first check other thread can put key , value in map
-            cache.fillCache(key, value);
-        }
+//        if(!map.containsKey(key)){
+//            // this is where race can occur , after first check other thread can put key , value in map
+//            cache.fillCache(key, value);
+//        }
+        map.computeIfAbsent(key ,(K  k) -> {
+            cache.fillCache(key,value);
+            return null;
+        });
+
     }
 }
