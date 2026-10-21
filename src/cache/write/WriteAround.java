@@ -3,27 +3,48 @@ package cache.write;
 import cache.Cache;
 import cache.Database;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 public class WriteAround<K,V> extends WritePolicyBase<K,V> implements WritePolicy<K,V> {
-//    private final Map<K,V> map;
+    private final Map<K,Object> tickets;
 
     public WriteAround(Cache<K,V> cache, Database<K,V> database){
         super(cache,database);
-//        map = new ConcurrentHashMap<>();
+        tickets = new ConcurrentHashMap<>();
     }
 
     @Override
     public void write(K key, V value) {
-        writeToDB(key,value);
+        writeToDB(key, value);
+        tickets.remove(key);
         invalidateCache(key);
     }
 
     @Override
     public V read(K key) {
+        Object ticket = new Object();
+        tickets.put(key, ticket);
+        try {
 
-        V value = database.get(key);
-        //race to be fixed here
-        fillCache(key, value);
-        return value;
+
+            V value = database.get(key);
+            if (value != null) {
+                tickets.computeIfPresent(key, (K k, Object old) ->
+                        {
+                            if (ticket == old) {
+                                fillCache(key, value);
+                                return null;
+                            }
+                            return old;
+                        }
+                );
+            }
+            return value;
+        }
+        finally {
+            tickets.remove(key, ticket);
+        }
     }
 
     @Override
@@ -50,6 +71,6 @@ public class WriteAround<K,V> extends WritePolicyBase<K,V> implements WritePolic
     @Override
     protected void fillCache(K key, V value) {
 //        map.put(key, value);
-        cache.fillCache(key, value);
+        cache.fillCache(key,value);
     }
 }

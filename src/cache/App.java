@@ -31,27 +31,6 @@ public class App<K,V> {
         if(key== null){
             throw new IllegalArgumentException("key must not be null");
         }
-//        // Counters: hit = found in cache or write buffer, miss = loaded from DB, absent everywhere = not counted.
-//        V value = cache.get(key);
-//        if(value == null){
-//            value = writePolicy.bufferRead(key);
-//            if(value == null){
-//                value = database.get(key);
-//                if(value == null){
-//                    return value;
-//                }
-//                cacheMiss.incrementAndGet();
-//                //Write key to cache;
-//                writePolicy.fillCache(key, value);
-//            }
-//            else{
-//                cacheHit.incrementAndGet();
-//            }
-//            return value;
-//        }
-//        cacheHit.incrementAndGet();
-//        return value;
-
         V value = cache.get(key);
         if(value==null){
             cacheMiss.incrementAndGet();

@@ -82,3 +82,29 @@ or the buffer, so there is no reverse order and no deadlock.
 - *Flusher* (`get`, `database.put`, `remove(key, value)`): `remove` deletes only if the buffer still holds the flushed value, so a
   newer different value stays for the next flush. If the newer write has the same value, removing it is harmless: the DB has it.
 - *Read-fill* (D2): `LRUStore.fillCache` re-checks presence under the store lock, so a write that completed in between wins.
+
+## D5. WriteAround stale fill: per-read tickets (leases)
+**Status:** decided and implemented (phase 1, `WriteAround.read` / `write`).
+
+**Problem:** with write-around (DB write, then invalidate), a reader that read the old value from the DB *before* a write can fill the
+cache *after* that write's invalidate. The stale value stays until the next write or an eviction. Not rare: the window is about one DB
+round trip, so it happens whenever a key is read and written concurrently.
+
+**Decision:** a `ConcurrentHashMap<K, Object> tickets` holds one ticket per read in progress (no data).
+- Reader: `put` a fresh `new Object()` before the DB read; after it, fill only if the entry is still **its** ticket (identity check),
+  atomically inside `computeIfPresent` (mine -> fill, return `null` to remove; not mine -> return it unchanged); `finally` removes only
+  its own ticket (two-argument `remove`).
+- Writer: DB write, **then** tear up (`remove(key)`), **then** invalidate. Tear-up after the DB write so any reader registered later
+  reads the new value; invalidate last so a fill that slipped in before the tear-up is wiped.
+- `put` rather than `putIfAbsent`: the latest reader to start may fill; older readers whose ticket was replaced skip. Both are correct
+  (removing or replacing a ticket can only prevent a fill, never cause a stale one); `put` never leaves a reader stuck behind a failed one.
+Size of the map = reads in progress (bounded by reader threads), not keys.
+
+**Rejected**
+- *Accept + TTL:* the race is not rare here (one DB round trip), unlike D2.
+- *Version per key:* the key is not in the cache at fill time, so there is nowhere to keep the version (a separate map grows with keys).
+- *Per-key lock across the DB read (Caffeine-style atomic load):* holds a lock during I/O and blocks writers of that key (as in D2).
+- *Latest-write map (writer stores its value, reader fills from it):* writer-vs-writer order between DB and map can differ (stale), and
+  the map grows with every key written but not read, which is exactly the WriteAround workload.
+
+**Trade-off accepted:** a raced read leaves the cache cold once (an extra miss), never wrong.
