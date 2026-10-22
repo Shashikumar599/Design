@@ -12,8 +12,8 @@ public class App<K,V> {
     Cache<K,V> cache;
     WritePolicy<K,V> writePolicy;
 
-    private AtomicInteger cacheHit;
-    private AtomicInteger cacheMiss;
+    private final AtomicInteger cacheHit;
+    private final AtomicInteger cacheMiss;
 
     App(int cacheCapacity, Function<Integer,Store<K,V>> storeFactory
         , BiFunction<Cache<K,V>, Database<K,V>, WritePolicy<K,V>> writePolicyFactory, Database<K,V> database){
@@ -49,12 +49,6 @@ public class App<K,V> {
             throw new IllegalArgumentException("value must not be null");
         }
         writePolicy.write(key,value);
-    }
-    public void storeToCache(K key, V value){
-        cache.put(key, value);
-    }
-    public void storeToDB(K key, V value){
-        database.put(key, value);
     }
 
     public void shutdown() throws InterruptedException {
