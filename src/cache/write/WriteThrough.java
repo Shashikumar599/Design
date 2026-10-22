@@ -5,25 +5,38 @@ import cache.Database;
 
 public class WriteThrough<K,V> extends WritePolicyBase<K,V> implements WritePolicy<K,V>{
 
+    private final Object[] lockList;
+    private final int lockCount;
+
     public WriteThrough(Cache<K,V> cache, Database<K,V> database){
         super(cache,database);
+        lockCount = 16;
+        lockList = new Object [lockCount];
+
+        for(int i=0;i<lockCount;i++){
+            lockList[i] = new Object();
+        }
     }
 
     @Override
-    public synchronized void  write(K key, V value) {
-        writeToCache(key, value);
-        try{
-            writeToDB(key, value);
+    public void  write(K key, V value) {
+        ensureOpen();
+        int lockIndex = Math.floorMod(key.hashCode(), lockCount);
+        synchronized (lockList[lockIndex]){
+            writeToCache(key, value);
+            try{
+                writeToDB(key, value);
+            }
+            catch (Exception e){
+                invalidateCache(key);
+                throw new RuntimeException("Database Write Failed " + e.getMessage(), e);
+            }
         }
-        catch (Exception e){
-            invalidateCache(key);
-            throw new RuntimeException("Database Write Failed " + e.getMessage());
-        }
-
     }
 
     @Override
     public V read(K key) {
+        ensureOpen();
         V value = database.get(key);
         if(value!=null){
             fillCache(key,value);
@@ -47,11 +60,6 @@ public class WriteThrough<K,V> extends WritePolicyBase<K,V> implements WritePoli
     protected void invalidateCache(K key) {
         cache.invalidateKey(key);
 
-    }
-
-    @Override
-    public void shutdown() {
-        System.out.println("Cache , DB system shutdown");
     }
 
     @Override
