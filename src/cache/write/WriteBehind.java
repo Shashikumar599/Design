@@ -9,19 +9,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class WriteBehind<K,V> extends WritePolicyBase<K,V> implements WritePolicy<K,V>{
     private final Map<K,V> map;
     private final ScheduledExecutorService executorService;
 
-    private final AtomicBoolean shutdown;
     private final ReentrantReadWriteLock shutdownLock;
 
     public WriteBehind(Cache<K,V> cache, Database<K,V> database){
         super(cache,database);
-        shutdown = new AtomicBoolean(false);
         shutdownLock = new ReentrantReadWriteLock();
 
         map = new ConcurrentHashMap<>();
@@ -36,14 +33,10 @@ public class WriteBehind<K,V> extends WritePolicyBase<K,V> implements WritePolic
 
     @Override
     public void write(K key, V value) {
-        if(shutdown.get()){
-            throw new IllegalStateException("App is shutting down, Writes are blocked");
-        }
+        ensureOpen();
         shutdownLock.readLock().lock();
         try{
-            if(shutdown.get()){
-                throw new IllegalStateException("App is shutting down, Writes are blocked");
-            }
+            ensureOpen();
 
             // cache + buffer update as one atomic step per key, so concurrent writers cannot leave them different.
             // Lock order is always buffer key lock -> LRUStore lock, never reversed, so no deadlock. See DECISIONS.md D4.
@@ -58,6 +51,7 @@ public class WriteBehind<K,V> extends WritePolicyBase<K,V> implements WritePolic
 
     @Override
     public V read(K key) {
+        ensureOpen();
         V value = bufferRead(key);
         if(value==null){
             value = database.get(key);
@@ -103,10 +97,11 @@ public class WriteBehind<K,V> extends WritePolicyBase<K,V> implements WritePolic
 
     @Override
     public void shutdown() throws InterruptedException {
-        if(!shutdown.compareAndSet(false,true)){
+        if(!markShutdown()){
             System.out.println("Shutdown already in progress");
             return;
         }
+
         System.out.println("Starting shutdown");
         shutdownLock.writeLock().lock();
 

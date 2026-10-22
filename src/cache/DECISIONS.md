@@ -108,3 +108,41 @@ Size of the map = reads in progress (bounded by reader threads), not keys.
   the map grows with every key written but not read, which is exactly the WriteAround workload.
 
 **Trade-off accepted:** a raced read leaves the cache cold once (an extra miss), never wrong.
+
+## D6. WriteThrough concurrency: striped write locks; read-fill relies on put-if-absent
+**Status:** decided and implemented (phase 1, `WriteThrough`).
+
+**Write vs write (same key):** `write` is "cache put, then DB write" (invalidate on DB failure). Two writers can interleave so the cache
+ends with one value and the DB with the other, permanently. **Decision:** a fixed array of 16 lock objects; the stripe is
+`floorMod(key.hashCode(), 16)`; cache put + DB write + the failure invalidate run inside `synchronized (stripe)`. Equal keys share a stripe,
+so their writes serialize; different keys share one only with probability ~1/16 (extra waiting, never incorrect). The lock is held across
+the DB write: accepted, because only writers of that stripe wait (unlike the earlier `synchronized` method, which serialized every write).
+No deadlock: inside a stripe only the `LRUStore` lock is taken, nothing takes them in reverse, and no thread holds two stripes.
+
+**Read vs write:** no lock and no tickets. A reader's late fill of an old DB value is skipped, because the writer already *put* the new
+value in the cache and `fillCache` is put-if-absent. **Accepted gap:** the key is evicted between the writer's cache put and the reader's
+fill; then the old value is filled and stays until the next write (same rare class as D2).
+
+**Rejected**
+- *`synchronized` on `write`:* one lock for all keys, held across DB I/O; also locks the public `this`.
+- *Tickets (D5) in WriteThrough:* unnecessary for the common case (put-if-absent already skips the stale fill); only the rare eviction case would benefit.
+- *Per-key lock map removed after the write:* removing an entry while another writer waits on it creates a second lock for the same key;
+  correct only with reference counting, more code than striping.
+- *`compute` around the write:* no I/O allowed inside it.
+
+## D7. One shutdown contract for all policies
+**Status:** decided and implemented (phase 1). App-level read check pending.
+
+**Decision:** after `shutdown()`, `write` and `read` throw `IllegalStateException` for every policy.
+- One flag (`AtomicBoolean`) in `WritePolicyBase`; `markShutdown()` flips it once and returns whether this call did (so a second
+  `shutdown()` is a no-op); `ensureOpen()` is the single check, called first in every `read` and `write`.
+- `WriteBehind` overrides `shutdown()`: marks the flag, then takes the write side of its read-write lock, stops the flusher and flushes.
+  It keeps a second `ensureOpen()` inside the read lock in `write`, so no write can land after the final flush.
+- `WriteThrough` / `WriteAround` need only the flag: they buffer nothing, so a write that passed the check just before shutdown and
+  finishes after it still reaches the DB. **Condition:** this holds while `shutdown()` does not close the DB; if it ever does, they need the lock too.
+
+**Known gap (accepted, to be fixed in `App`):** `App.get` serves cache hits without asking the policy, so after shutdown a cached key is
+still returned while an uncached one throws. The policy cannot see hits; the check belongs in `App.get` (before `cache.get`).
+
+**Rejected:** a flag per policy (three copies of the same rule, already diverged once); a `default` method on the interface (an interface
+cannot hold the flag); Template Method (`final write` calling `doWrite`): considered, the helper was chosen as simpler.

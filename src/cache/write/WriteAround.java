@@ -16,6 +16,7 @@ public class WriteAround<K,V> extends WritePolicyBase<K,V> implements WritePolic
 
     @Override
     public void write(K key, V value) {
+        ensureOpen();
         writeToDB(key, value);
         tickets.remove(key);
         invalidateCache(key);
@@ -23,6 +24,7 @@ public class WriteAround<K,V> extends WritePolicyBase<K,V> implements WritePolic
 
     @Override
     public V read(K key) {
+        ensureOpen();
         Object ticket = new Object();
         tickets.put(key, ticket);
         try {
@@ -61,12 +63,6 @@ public class WriteAround<K,V> extends WritePolicyBase<K,V> implements WritePolic
     protected void invalidateCache(K key) {
         cache.invalidateKey(key);
     }
-
-    @Override
-    public void shutdown() {
-        System.out.println("Cache , DB system shutdown");
-    }
-
 
     @Override
     protected void fillCache(K key, V value) {

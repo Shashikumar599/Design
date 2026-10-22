@@ -5,4 +5,5 @@ public interface WritePolicy<K,V> {
     public V read(K key);
     public void shutdown() throws InterruptedException;
 
+
 }
