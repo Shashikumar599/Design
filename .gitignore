@@ -11,6 +11,7 @@ out/
 
 # Tutor feedback files
 FEEDBACK.md
+CHAT.md
 
 # macOS
 .DS_Store
