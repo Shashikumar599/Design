@@ -7,8 +7,8 @@ public class Server {
 
     private final AtomicInteger counter;
 
-    public Server(){
-        rateLimiter = new FixedWindowRateLimiter("rate",1,5,10);
+    public Server(RateLimiter rateLimiter){
+        this.rateLimiter = rateLimiter;
         counter = new AtomicInteger(0);
     }
     public int api(){
