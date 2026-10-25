@@ -41,10 +41,9 @@ public class Client implements Runnable {
                     }
                     finally {
                         boolean unlockStatus = lock.unlock(token);
-                        if(unlockStatus){
-                            System.out.println("Failed to unlock, Anomaly detected");
+                        if(!unlockStatus){
+                            System.out.println("Someone else own lock, Anomaly detected");
                         }
-
                     }
                     System.out.println(Thread.currentThread().getName() + " my id is "   + id);
                     set.add(id);
