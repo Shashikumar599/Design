@@ -1,4 +1,4 @@
-package redis;
+package redis.ratelimiter;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -8,7 +8,7 @@ public class Server {
     private final AtomicInteger counter;
 
     public Server(){
-        rateLimiter = new RateLimiter("rate",1,5,10);
+        rateLimiter = new FixedWindowRateLimiter("rate",1,5,10);
         counter = new AtomicInteger(0);
     }
     public int api(){

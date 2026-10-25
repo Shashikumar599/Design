@@ -1,4 +1,6 @@
-package redis;
+package redis.idgenerator;
+
+import redis.RedisClient;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

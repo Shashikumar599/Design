@@ -1,4 +1,4 @@
-package redis;
+package redis.ratelimiter;
 
 import java.security.SecureRandom;
 import java.util.concurrent.ExecutorService;

@@ -1,4 +1,4 @@
-package redis;
+package redis.idgenerator;
 
 import java.util.HashSet;
 import java.util.TreeMap;

@@ -81,13 +81,17 @@ Blind `DEL` is wrong: if my lease expired and B took the lock, my `DEL` frees B'
 
 **Lock location.** Client-side locking is voluntary: every caller must lock; the resource does not enforce it. Keep the DB check as the real guard.
 
-**Where the code stands (this folder).**
+**Where the code stands (`src/redis`).**
 | File | Role |
 |---|---|
-| `RedisClient` | RESP socket client; one connection, not thread safe |
-| `RedisLock` | `lock()` returns token (`SET NX PX`, retry 5 ms); `unlock(token)` Lua check-and-delete, returns true/false |
-| `IdGenerator` | intentionally racy shared counter |
-| `Client` | runs a batch with a 10-thread pool, lock around `getID()` |
-| `Main` | runs 3 clients in parallel, prints unique id count |
+| `RedisClient` | shared RESP socket client; one connection, not thread safe |
+| `idgenerator/RedisLock` | `lock()` returns token (`SET NX PX`, retry 5 ms); `unlock(token)` Lua check-and-delete, returns true/false |
+| `idgenerator/IdGenerator` | intentionally racy shared counter |
+| `idgenerator/Client` | runs a batch with a 10-thread pool, lock around `getID()` |
+| `idgenerator/Main` | runs 3 clients in parallel, prints unique id count |
+| `ratelimiter/RateLimiter` | interface: `allow()` |
+| `ratelimiter/FixedWindowRateLimiter` | Redis counter: one Lua call does `INCR`, `EXPIRE` when created, compare with limit; pooled `RedisClient`s |
+| `ratelimiter/SlidingWindowRateLimiter` | stub, to be designed |
+| `ratelimiter/Server`, `RateMain` | demo API calling the limiter from many threads |
 
-Measured: no lock gives duplicate ids (993/1000); with lock 1000/1000; TTL shorter than the critical section brings overlap back.
+Measured: no lock gives duplicate ids (993/1000); with lock 1000/1000; TTL shorter than the critical section brings overlap back. Fixed-window limiter: 250 requests on 50 threads, limit 100 gives exactly 100 allowed.

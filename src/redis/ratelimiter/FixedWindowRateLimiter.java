@@ -1,11 +1,13 @@
-package redis;
+package redis.ratelimiter;
+
+import redis.RedisClient;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
-public class RateLimiter {
+public class FixedWindowRateLimiter implements RateLimiter {
     // INCR creates the key at 1 if missing; only the call that created it attaches the TTL
     private static final String SCRIPT =
             "local c = redis.call('INCR', KEYS[1]) " +
@@ -17,7 +19,7 @@ public class RateLimiter {
     private final int limit;
     private final BlockingQueue<RedisClient> pool;
 
-    public RateLimiter(String key, int windowSeconds, int limit, int poolSize) {
+    public FixedWindowRateLimiter(String key, int windowSeconds, int limit, int poolSize) {
         this.key = key;
         this.windowSeconds = windowSeconds;
         this.limit = limit;
@@ -31,6 +33,7 @@ public class RateLimiter {
         }
     }
 
+    @Override
     public boolean allow() {
         return checkLimit();
     }

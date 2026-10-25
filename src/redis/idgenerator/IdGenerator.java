@@ -1,4 +1,4 @@
-package redis;
+package redis.idgenerator;
 
 public class IdGenerator {
     private int  counter=0;
