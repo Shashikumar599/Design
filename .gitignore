@@ -4,6 +4,7 @@
 
 # Build output
 out/
+target/
 *.class
 
 # Claude Code local config
@@ -18,4 +19,6 @@ CHAT.md
 
 CLAUDE.md
 PLAN.md
+guide.md
+
 
