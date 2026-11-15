@@ -1,7 +1,7 @@
 package logger;
 
-public class Logger {
-    private Logger(){
+public class Loggerref {
+    private Loggerref(){
         System.out.println("logger intialized");
     }
 
@@ -25,7 +25,7 @@ public class Logger {
     //   Another thread could then see a non-null `logger` that is NOT fully constructed.
     //   `volatile` forbids that reordering and guarantees visibility across threads.
     // - Should be `private static volatile Logger logger;` (the "=null" is redundant).
-    private static Logger logger=null;
+    private static Loggerref logger=null;
 
     // ------------------------------------------------------------------------------------
     // getLogger()  -- NOT thread safe
@@ -40,9 +40,9 @@ public class Logger {
     //   Also, with no synchronization/volatile there is no guarantee one thread ever sees
     //   the value another thread wrote (visibility problem).
     //   You'd see "logger intialized" printed more than once under concurrency.
-    public static Logger getLogger(){
+    public static Loggerref getLogger(){
         if(logger == null){
-            logger = new Logger();
+            logger = new Loggerref();
         }
         return logger;
     }
@@ -57,9 +57,9 @@ public class Logger {
     // Pros: simplest correct lazy singleton.
     // Cons: EVERY call locks, even long after the instance exists. If getLogger2 is called a
     //       lot (logging usually is!) threads queue up for no reason -> contention.
-    public static synchronized  Logger getLogger2(){
+    public static synchronized Loggerref getLogger2(){
         if(logger == null){
-            logger = new Logger();
+            logger = new Loggerref();
         }
         return logger;
     }
@@ -80,11 +80,11 @@ public class Logger {
     //    is never created and this method returns null. Both checks must be `== null`.
     // 2. `logger` is not volatile (see field comment) -> a thread may see a half-built object.
     // Correct DCL = non-synchronized method + `== null` twice + volatile field.
-    public static Logger getLogger3(){
+    public static Loggerref getLogger3(){
         if(logger == null){
-            synchronized (Logger.class){
+            synchronized (Loggerref.class){
                 if(logger != null){
-                    logger = new Logger();
+                    logger = new Loggerref();
                 }
             }
         }
