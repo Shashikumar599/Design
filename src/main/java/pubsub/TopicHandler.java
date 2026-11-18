@@ -7,6 +7,7 @@ import pubsub.topic.Topic;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class TopicHandler {
 
@@ -20,7 +21,7 @@ public class TopicHandler {
         synchronized (topic){
             List<EventListener> listeners = listenerQueue.get(topic);
             if(listeners == null){
-                listeners = new ArrayList<>();
+                listeners = new CopyOnWriteArrayList<>();
                 listenerQueue.put(topic, listeners);
             }
             listeners.add(eventListener);
