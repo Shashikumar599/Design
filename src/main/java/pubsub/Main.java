@@ -10,6 +10,8 @@ import pubsub.topic.Cricket;
 import pubsub.topic.Topic;
 import pubsub.topic.Weather;
 
+import java.security.SecureRandom;
+
 public class Main {
     public static void main(String[] args) throws InterruptedException {
         System.out.println("main");
@@ -20,8 +22,8 @@ public class Main {
         EventListener weatherListener1  =  new WeatherListener();
         EventListener weatherListener2 =  new WeatherListener();
 
-        Topic cricket =  new Cricket();
-        Topic weather =  new Weather();
+        Topic cricket =   Cricket.cricket;
+        Topic weather =   Weather.weather;
 
         EventPublisher cricketPublisher = new CricketPublisher(cricket);
         EventPublisher weatherPublisher = new WeatherPublisher(weather);
@@ -47,14 +49,38 @@ public class Main {
             }
         });
 
-        topicHandler.subscribe(weather , weatherListener1);
-        topicHandler.subscribe(weather, weatherListener2);
-        topicHandler.subscribe(cricket, cricketListener);
-
-
-
         t1.start();
         t2.start();
+        SecureRandom secureRandom =  new SecureRandom();
+        int i=0;
+        while(i<50){
+            boolean a = secureRandom.nextBoolean();
+            boolean b = secureRandom.nextBoolean();
+            boolean c = secureRandom.nextBoolean();
+            if(a){
+                topicHandler.subscribe(weather , weatherListener1);
+            }
+            else{
+                topicHandler.unsubscribe(weather , weatherListener1);
+            }
+
+            if(b){
+                topicHandler.subscribe(weather , weatherListener2);
+            }
+            else{
+                topicHandler.unsubscribe(weather , weatherListener2);
+            }
+
+            if(c){
+                topicHandler.subscribe(cricket , cricketListener);
+            }
+            else{
+                topicHandler.unsubscribe(cricket , cricketListener);
+            }
+            int sleep = secureRandom.nextInt(500);
+            Thread.sleep(sleep);
+            i++;
+        }
 
         Thread.sleep(5000);
 

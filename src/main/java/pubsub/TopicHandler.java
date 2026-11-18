@@ -4,24 +4,22 @@ import pubsub.event.Event;
 import pubsub.listener.EventListener;
 import pubsub.topic.Topic;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 public class TopicHandler {
 
-    public   static final TopicHandler topicHandler = new TopicHandler();
+    public static final TopicHandler topicHandler = new TopicHandler();
     private TopicHandler(){}
 
 
-    ConcurrentHashMap<Topic, List<EventListener>> listenerQueue = new ConcurrentHashMap<>();
+    ConcurrentHashMap<Topic, CopyOnWriteArraySet<EventListener>> listenerQueue = new ConcurrentHashMap<>();
 
     public void subscribe(Topic topic, EventListener eventListener){
         synchronized (topic){
-            List<EventListener> listeners = listenerQueue.get(topic);
+            CopyOnWriteArraySet<EventListener> listeners = listenerQueue.get(topic);
             if(listeners == null){
-                listeners = new CopyOnWriteArrayList<>();
+                listeners = new CopyOnWriteArraySet<>();
                 listenerQueue.put(topic, listeners);
             }
             listeners.add(eventListener);
@@ -30,7 +28,7 @@ public class TopicHandler {
     }
     public void unsubscribe(Topic topic, EventListener eventListener){
         synchronized (topic){
-            List<EventListener> listeners = listenerQueue.get(topic);
+            CopyOnWriteArraySet<EventListener> listeners = listenerQueue.get(topic);
             if(listeners == null){
                 return;
             }
@@ -42,7 +40,7 @@ public class TopicHandler {
 
     }
     public void handleEvent(Event event, Topic topic){
-        List<EventListener> listeners = listenerQueue.get(topic);
+        CopyOnWriteArraySet<EventListener> listeners = listenerQueue.get(topic);
 
         if(listeners == null || listeners.isEmpty()){
             return;
@@ -53,7 +51,7 @@ public class TopicHandler {
             listener.onEvent(event);
             }
             catch (Exception e){
-                System.out.println("Failed to Publish to " + listener);
+                System.out.println("Failed to Publish to " + listener +  " " +e.getMessage());
             }
         }
 
